@@ -1,0 +1,9 @@
+{
+  "name": "sxml",
+  "version": "1.0.0",
+  "description": "S-Expression Markup Language",
+  "main": "index.js",
+  "author": "David Marrs",
+  "license": "MIT",
+  "private": false
+}
