@@ -20,6 +20,66 @@ describe('whitespace between an opening bracket and a token', function() {
     });
 });
 
+describe('(tag)', function() {
+    it('maintains whitespace when self-closing a tag', function() {
+        expect(parse('(tag )')).to.eql('<tag />');
+    });
+
+    it('adds a space to a self-closing tag if non is present', function() {
+        expect(parse('(tag)')).to.eql('<tag />');
+    });
+
+
+    it('preserves newlines when auto-closing a tag', function() {
+        var input = `(tag
+)`;
+        var output = `<tag
+/>`;
+        expect(parse(input)).to.eql(output);
+    });
+
+    it('respects newlines when adding operands', function() {
+        var input = `(tag
+foobar)`;
+        var output = `<tag>
+foobar</tag>`;  // Should we put the closing tag on a new line? Perhaps have a format mode?
+        expect(parse(input)).to.eql(output);
+    });
+
+    it('maintains nesting of s-exp when producing html', function() {
+        var input = `(tag
+  (subtag foo)
+)`;
+        var output = `<tag>
+  <subtag>foo</subtag>
+</tag>`;
+    });
+
+    it('adds an attribute to opening tag if it is the first operand', function() {
+        expect(parse('(tag (@attr))')).to.eql('<tag attr />');
+    });
+
+    it('adds an attribute with value to opening tag if it is the first operand', function() {
+        expect(parse('(tag (@attr foo))')).to.eql('<tag attr="foo" />');
+    });
+
+    it('adds multiple attributes to opening tag if they are amongst the first operands', function() {
+        expect(parse('(tag (@attr) (@attr val))')).to.eql('<tag attr attr="val" />');
+    });
+
+    it('preserves whitespace when adding multiple attributes', function() {
+        var input = `(tag
+  (@attr)  (@attr val)
+  (@foo bar))`;
+
+        var output = `<tag
+  attr  attr="val"
+  foo="bar" />`;
+
+        expect(parse(input)).to.eql(output);
+    });
+});
+
 describe('(@)', function() {
     var logger;
 
@@ -98,11 +158,11 @@ describe('(@)', function() {
     });
 
     it('ignores escaped brackets when parsing attribute value and makes no attempt to balance them.', function() {
-        expect(parse('(@attr ((val)))')).to.eql(' attr="((val"))');
+        expect(parse('(tag (@attr ((val))))')).to.eql('<tag attr="((val" />))');
     });
 
     it('writes out bracketed attribute values and makes no attempt to balance them. They have no significance in this position', function() {
-        expect(parse('(@attr (val))')).to.eql(' attr="(val")');
+        expect(parse('(tag (@attr (val)))')).to.eql('<tag attr="(val" />)');
     });
 
     // TODO: Test once we have completed tag writing.
@@ -128,11 +188,11 @@ describe('(@)', function() {
 
     describe('badly formed XML', function() {
         it('writes out the same attribute twice if it is provided twice', function() {
-            expect(parse('(@attr foo)(@attr bar)')).to.eql(' attr="foo" attr="bar"');
+            expect(parse('(tag (@attr foo)(@attr bar))')).to.eql('<tag attr="foo" attr="bar" />');
         });
 
         it('ignores nested attributes and matches first bracket it finds', function() {
-            expect(parse('(@attr foo (@attr bar))')).to.eql(' attr="foo (@attr bar")');
+            expect(parse('(tag (@attr foo (@attr bar)))')).to.eql('<tag attr="foo (@attr bar" />)');
         });
 
     });
