@@ -1,7 +1,7 @@
 var chai = require('chai')
-var index = require('../src/index');
-var parse = index.parse;
-var render = index.render;
+var parser = require('../src/parser');
+var parse = parser.parse;
+var render = parser.render;
 var sinon = require('sinon');
 var sinonChai = require('sinon-chai');
 
@@ -84,7 +84,7 @@ describe('(@)', function() {
     var logger;
 
     before(function() {
-        logger = sinon.stub(index, 'log_parse_error').callsFake(function(){});
+        logger = sinon.stub(parser, 'log_parse_error').callsFake(function(){});
     });
 
     afterEach(function() {
