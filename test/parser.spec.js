@@ -179,10 +179,9 @@ describe('(@)', function() {
         expect(parse('(tag (@attr (val)))')).to.eql('<tag attr="(val" />)');
     });
 
-    // TODO: Test once we have completed tag writing.
-    describe.skip('other scenarios', function() {
+    describe('other scenarios', function() {
         it('ignores unmatched closing bracket', function() {
-            expect(parse('(foo (@attr )(val)))')).to.eql('<foo attr><val/></foo>)');
+            expect(parse('(foo (@attr )(val)))')).to.eql('<foo attr><val /></foo>)');
         });
     });
 
