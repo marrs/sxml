@@ -22,6 +22,6 @@ readStream.on('open', function() {
 
 readStream.on('data', function(chunk) {
     var result = [];
-    parse_chunk(decoder.write(chunk), result, parseState)
+    parser.parse_chunk(decoder.write(chunk), result, parseState)
     process.stdout.write(Buffer.from(result.join('')));
 });

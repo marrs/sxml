@@ -17,13 +17,13 @@ exports.Buffer_Trait = {
         this.reset(this.cursor + offset);
     },
 
-    skip_whitespace: function() {
+    skip_whitespace: function(x) {
+        x = (x === void 0)? Number.MAX_VALUE : x;
+
         var nextNonWsChar = this.substr.match(/[^\s]/);
-        if (nextNonWsChar) {
-            this.advance(nextNonWsChar.index);
-            return;
-        }
-        this.reset(this.str.length);
+        return nextNonWsChar?
+            this.advance(Math.min(x, nextNonWsChar.index)):
+            this.reset(Math.min(x, this.str.length));
     },
 
     is_next_char: function(ch) {

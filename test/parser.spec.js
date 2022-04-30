@@ -78,6 +78,20 @@ foobar</tag>`;  // Should we put the closing tag on a new line? Perhaps have a f
 
         expect(parse(input)).to.eql(output);
     });
+
+    it('nests tags', function() {
+        expect(parse('(ul (li List Item))')).to.eql('<ul><li>List Item</li></ul>');
+    });
+    it('preserves whitespace while nesting tags', function() {
+        var input = `(ul
+  (li List Item)
+)`;
+
+        var output = `<ul>
+  <li>List Item</li>
+</ul>`;
+        expect(parse(input)).to.eql(output);
+    });
 });
 
 describe('(@)', function() {
