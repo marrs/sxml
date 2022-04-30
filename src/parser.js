@@ -124,8 +124,7 @@ function parse_chunk(strChunk, result, data) {
                 if (buf.is_next_char(')')) {
                     buf.advance(1);
                     // Preserve whitespace for self-closing tags.
-                    result[result.length] = (data.wsBuf || ' ') + '/>';
-                    data.wsBuf = '';
+                    result[result.length] = (data.barf_ws() || ' ') + '/>';
                     var currentTag = data.tagStack.pop();
                     data.processing = false;
                 } else if (buf.is_next_char('(')) {
@@ -136,17 +135,15 @@ function parse_chunk(strChunk, result, data) {
 
                                 data.wsBuf = ' ';
                             }
-                            result[result.length] = data.wsBuf;
-                            data.wsBuf = '';
+                            result[result.length] = data.barf_ws();
                             data.tagStack.push('@');
                             data.processing = '(@';
                         } break;
                         case 'tag': {
                             data.tagStack.push('');
                             result[result.length] = ['>', '<'].join(
-                                is_found(data.wsBuf, '\n')? data.wsBuf : data.wsBuf.substring(1)
+                                is_found(data.wsBuf, '\n')? data.barf_ws() : data.barf_ws().substring(1)
                             )
-                            data.wsBuf = '';
                             data.processing = '(#';
                         } break;
                         case 'bracket': {
@@ -157,11 +154,9 @@ function parse_chunk(strChunk, result, data) {
                     if (buf.substr) {
                         result[result.length] = '>';
                         if (is_found(data.wsBuf, '\n')) {
-                            result[result.length] = data.wsBuf;
-                            data.wsBuf = '';
+                            result[result.length] = data.barf_ws();
                         } else {
-                            result[result.length] = data.wsBuf.substring(1);
-                            data.wsBuf = '';
+                            result[result.length] = data.barf_ws().substring(1);
                         }
                         data.processing = false;
                     }
@@ -301,7 +296,13 @@ function parse_chunk(strChunk, result, data) {
 }
 
 function init_parse_state() {
-    return {line: 1, tagStack: [], processing: false, wsBuf: ''};
+    var data = {line: 1, tagStack: [], processing: false, wsBuf: ''};
+    data.barf_ws = function() {
+        var buf = this.wsBuf;
+        this.wsBuf = '';
+        return buf;
+    }
+    return data;
 }
 
 exports.parse = function (s) {
