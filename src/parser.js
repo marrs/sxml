@@ -124,20 +124,20 @@ function parse_chunk(strChunk, result, data) {
                     result[result.length] = '#';
                     data.processing = null;
                 }
-                buf.advance(1);
+                buf.step();
             } break;
             case '#(': {
                 result[result.length] = buf.read_to(')')
                 if (!buf.substr) {
                     return;
                 } else {
-                    buf.advance(1);
+                    buf.step();
                     data.processing = ')#?';
                 }
             } break;
             case ')#?': {
                 if ('#' === buf.substr[0]) {
-                    buf.advance(1);
+                    buf.step();
                     data.processing = null;
                 } else {
                     result[result.length] = ')';
@@ -155,13 +155,13 @@ function parse_chunk(strChunk, result, data) {
                         data.processing = '(#';
                     } break;
                     case 'attr': {
-                        buf.advance(1);
+                        buf.step();
                         data.processing = '(@1';
                     } break;
                     case 'bracket': {
                         data.tagStack.push('(');
                         result[result.length] = '(';
-                        buf.advance(1);
+                        buf.step();
                         data.processing = false;
                     } break;
                     default: {
@@ -191,7 +191,7 @@ function parse_chunk(strChunk, result, data) {
                             data.wsBuf = ' ';
                         }
                         result[result.length] = data.barf_ws();
-                        buf.advance(1);
+                        buf.step();
                         data.processing = '(@1';
                     } break;
                     case 'tag': {
@@ -205,7 +205,7 @@ function parse_chunk(strChunk, result, data) {
                     case 'bracket': {
                         data.tagStack.push('(');
                         result[result.length] = '>(';
-                        buf.advance(1);
+                        buf.step();
                         data.wsBuf = '';
                         data.processing = null;
                     } break;
@@ -218,13 +218,13 @@ function parse_chunk(strChunk, result, data) {
                 data.wsBuf += buf.read_whitespace();
                 if (!buf.substr) { return; }
                 if (buf.substr[0] === ')') {
-                    buf.advance(1);
+                    buf.step();
                     // Preserve whitespace for self-closing tags.
                     result[result.length] = (data.barf_ws() || ' ') + '/>';
                     data.tagStack.pop();
                     data.processing = false;
                 } else if (buf.substr[0] === '(') {
-                    buf.advance(1);
+                    buf.step();
                     data.processing = '(# (';
                 } else {
                     result[result.length] = '>';
@@ -240,7 +240,7 @@ function parse_chunk(strChunk, result, data) {
                 tmp = buf.substr[0];
                 switch (tmp) {
                     case ')': {
-                        buf.advance(1);
+                        buf.step();
                         data.processing = null;
                     } break;
                     case /\s/.test(tmp): {
@@ -249,7 +249,7 @@ function parse_chunk(strChunk, result, data) {
                         if (/[\s'"]/.test(tmp)) {
                             data.processing = '(@!';
                         } else {
-                            buf.advance(1);
+                            buf.step();
                             data.tagStack.push('@');
                             result[result.length] = tmp;
                             data.processing = '(@_';
@@ -262,7 +262,7 @@ function parse_chunk(strChunk, result, data) {
                 if (!buf.substr) {
                     return;
                 }
-                buf.advance(1);
+                buf.step();
                 data.processing = null;
             } break;
             case '(@_': {
@@ -290,11 +290,11 @@ function parse_chunk(strChunk, result, data) {
                     if (is_char_quote_mark(tmp)) {
                         result[result.length] = '=';
                         result[result.length] = tmp;
-                        buf.advance(1);
+                        buf.step();
                         data.processing = '(@ ' + tmp;
                     } else if (')' === tmp) {
                         data.tagStack.pop();
-                        buf.advance(1);
+                        buf.step();
                         data.processing = '(# ?';
                     } else {
                         result[result.length] = '=';
@@ -336,7 +336,7 @@ function parse_chunk(strChunk, result, data) {
                     return;
                 }
                 if (')' === buf.substr[0]) {
-                    buf.advance(1);
+                    buf.step();
                 }
                 data.processing = null;
             } break;
@@ -369,25 +369,25 @@ function parse_chunk(strChunk, result, data) {
                     } else {
                         result[result.length] = ')';
                     }
-                    buf.advance(1);
+                    buf.step();
                     continue;
                 }
 
                 if (idxOpeningBracket > -1) {
                     if (idxHash > -1 && idxHash === idxOpeningBracket -1) {
                         result[result.length] = buf.read_to(idxHash);
-                        buf.advance(2);
+                        buf.step(2);
                         data.processing = '#(';
                         continue;
                     }
                     result[result.length] = buf.read_to(idxOpeningBracket);
-                    buf.advance(1);
+                    buf.step();
                     data.processing = '(?';
                     continue;
                 } else if (idxHash === buf.str.length -1) {
                     result[result.length] = buf.read_to(idxHash);
                     data.processing = '#?';
-                    buf.advance(1);
+                    buf.step();
                     break;
                 } else {
                     result[result.length] = buf.read_to_end();
