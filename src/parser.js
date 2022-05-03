@@ -97,78 +97,152 @@ function parse_chunk(strChunk, result, data) {
         substr: strChunk,
     });
 
+    var tmp = '';
+
     while (buf.cursor < buf.str.length) {
         // Code:
+        //   (?  : Discover purpose of opening bracket
         //   (#  : Opening an s-exp for a tag
         //   (# ?: Discover what comes after tag operator
+        //   (# (: Handle opener discovered within tag operand
         //   (@ ?: Discover what comes after attr operator
-        //   (@  : Opening an s-exp for an attribute
+        //   (@1 : Handle first char of s-exp for attribute name
+        //   (@! : Bad attribute
+        //   (@_ : Acquire attribute name
         //   (@ ": Parsing an attribute value wrapped in double quotes
         //   (@ ': Parsing an attribute value wrapped in single quotes
         //   (@ _: Parsing an attribute value not wrapped in quotes
-        //   ((  : Parsing a text node wrapped in brackets (not an s-exp)
-        //   (>  : Finish opening tag
+        //   ))  : Handle second closing bracket
         switch (data.processing) {
+            case '(?': {
+                if (!buf.substr.length) { return; }
+                tmp = util.identify_operator(buf.substr);
+                switch (tmp) {
+                    case 'tag': {
+                        result[result.length] = '<';
+                        result[result.length] = '';
+                        data.tagStack.push('');
+                        data.processing = '(#';
+                    } break;
+                    case 'attr': {
+                        buf.advance(1);
+                        data.processing = '(@1';
+                    } break;
+                    case 'bracket': {
+                        data.tagStack.push('(');
+                        result[result.length] = '(';
+                        buf.advance(1);
+                        data.processing = false;
+                    } break;
+                    default: {
+                        result[result.length] = '(';
+                        data.processing = false;
+                        // XXX Why don't we advance here?
+                        // We must be advancing somewhere else?
+                        // Is that ok?
+                    }
+                }
+            } break;
             case '(#': {
-                var op = buf.eventually_read_operator();
-                if (false === op) {
-                    result[result.length] = buf.read_to_end()
+                tmp = buf.eventually_read_token();
+                if (false === tmp) {
+                    result[result.length -1] += buf.read_to_end()
                     continue;
                 }
-                result[result.length] = op;
+                result[result.length -1] += tmp;
                 data.tagStack[data.tagStack.length -1] += last(result);
                 data.processing = '(# ?';
             } break;
+            case '(# (': {
+                switch (util.identify_operator(buf.substr)) {
+                    case 'attr': {
+                        if (!/[\s]$/.test(last(result)) && !data.wsBuf) {
+
+                            data.wsBuf = ' ';
+                        }
+                        result[result.length] = data.barf_ws();
+                        buf.advance(1);
+                        data.processing = '(@1';
+                    } break;
+                    case 'tag': {
+                        data.tagStack.push('');
+                        result[result.length] = ['>', '<'].join(
+                            is_found(data.wsBuf, '\n')? data.barf_ws() : data.barf_ws().substring(1)
+                        )
+                        result[result.length] = '';
+                        data.processing = '(#';
+                    } break;
+                    case 'bracket': {
+                        data.tagStack.push('(');
+                        result[result.length] = '>(';
+                        buf.advance(1);
+                        data.wsBuf = '';
+                        data.processing = null;
+                    } break;
+                    default: {
+                        console.error("I should not be here");
+                    }
+                }
+            } break;
             case '(# ?': {
                 data.wsBuf += buf.read_whitespace();
-                if (buf.is_next_char(')')) {
+                if (!buf.substr) { return; }
+                if (buf.substr.charAt(0) === ')') {
                     buf.advance(1);
                     // Preserve whitespace for self-closing tags.
                     result[result.length] = (data.barf_ws() || ' ') + '/>';
                     var currentTag = data.tagStack.pop();
                     data.processing = false;
-                } else if (buf.is_next_char('(')) {
-                    var opStatus = buf.process_opening_bracket();
-                    switch (opStatus.pop()) {
-                        case 'attr': {
-                            if (!/[\s]$/.test(last(result)) && !data.wsBuf) {
-
-                                data.wsBuf = ' ';
-                            }
-                            result[result.length] = data.barf_ws();
-                            data.tagStack.push('@');
-                            data.processing = '(@';
-                        } break;
-                        case 'tag': {
-                            data.tagStack.push('');
-                            result[result.length] = ['>', '<'].join(
-                                is_found(data.wsBuf, '\n')? data.barf_ws() : data.barf_ws().substring(1)
-                            )
-                            data.processing = '(#';
-                        } break;
-                        case 'bracket': {
-                            // TODO:
-                        } break;
-                    }
+                } else if (buf.substr.charAt(0) === '(') {
+                    buf.advance(1);
+                    data.processing = '(# (';
                 } else {
-                    if (buf.substr) {
-                        result[result.length] = '>';
-                        if (is_found(data.wsBuf, '\n')) {
-                            result[result.length] = data.barf_ws();
+                    result[result.length] = '>';
+                    if (is_found(data.wsBuf, '\n')) {
+                        result[result.length] = data.barf_ws();
+                    } else {
+                        result[result.length] = data.barf_ws().substring(1);
+                    }
+                    data.processing = false;
+                }
+            } break;
+            case '(@1': {
+                var firstChar = buf.substr.charAt(0);
+                switch (firstChar) {
+                    case ')': {
+                        buf.advance(1);
+                        data.processing = null;
+                    } break;
+                    case /\s/.test(firstChar): {
+                    } break;
+                    default: {
+                        if (/[\s'"]/.test(firstChar)) {
+                            data.processing = '(@!';
                         } else {
-                            result[result.length] = data.barf_ws().substring(1);
+                            buf.advance(1);
+                            data.tagStack.push('@');
+                            result[result.length] = firstChar;
+                            data.processing = '(@_';
                         }
-                        data.processing = false;
                     }
                 }
             } break;
-            case '(@': {
-                var op = buf.eventually_read_operator();
-                if (false === op) {
-                    result[result.length] = buf.read_to_end();
+            case '(@!': {
+                result[result.length] = buf.read_to(')')
+                if (!buf.substr) {
+                    return;
+                }
+                buf.advance(1);
+                data.processing = null;
+            } break;
+            case '(@_': {
+                tmp = buf.eventually_read_token();
+                if (false === tmp) {
+                    result[result.length -1] += buf.read_to_end()
                     continue;
                 }
-                result[result.length -1] += op;
+                result[result.length -1] += tmp;
+                data.tagStack[data.tagStack.length -1] += last(result);
                 if (!is_valid_attr_name(last(result))) {
                     // XXX Will read funny for super-long attribute names
                     log_parse_error({
@@ -182,13 +256,13 @@ function parse_chunk(strChunk, result, data) {
             case '(@ ?': {
                 buf.skip_whitespace();
                 if (buf.substr) {
-                    var firstCharOfValue = buf.substr.charAt(0);
-                    if (is_char_quote_mark(firstCharOfValue)) {
+                    tmp = buf.substr.charAt(0);
+                    if (is_char_quote_mark(tmp)) {
                         result[result.length] = '=';
-                        result[result.length] = firstCharOfValue;
+                        result[result.length] = tmp;
                         buf.advance(1);
-                        data.processing = '(@ ' + firstCharOfValue;
-                    } else if (firstCharOfValue === ')') {
+                        data.processing = '(@ ' + tmp;
+                    } else if (tmp === ')') {
                         data.tagStack.pop();
                         buf.advance(1);
                         data.processing = '(# ?';
@@ -202,19 +276,22 @@ function parse_chunk(strChunk, result, data) {
             } break;
             case '(@ "':
             case "(@ '": {
-                var idxClosingQuote = index_of_closing_quote(buf.substr, last(data.processing));
-                if (idxClosingQuote > -1) {
-                    result[result.length] = buf.read_to(idxClosingQuote +1);
-                    data.processing = '(@ ?';
+                tmp = index_of_closing_quote(buf.substr, last(data.processing));
+                if (tmp > -1) {
+                    result[result.length] = buf.read_to(tmp +1);
+                    if (!(tmp === 0 && data.lastChar === '\\')) {
+                        data.processing = '(@ ?';
+                    }
                 } else {
                     result[result.length] = buf.read_to_end();
                 }
             } break;
             case '(@ _': {
-                var idxClosingBracket = buf.substr.indexOf(')');
-                if (idxClosingBracket > -1) {
+                //FIXME: Don't always have escape sequence in same chunk
+                tmp = buf.substr.indexOf(')');
+                if (tmp > -1) {
                     result[result.length] =
-                        buf.read_to(idxClosingBracket).replace('\\"', '&#34;');
+                        buf.read_to(tmp).replace('\\"', '&#34;');
                     result[result.length] = '"';
                     data.processing = '(@ ?';
                 } else {
@@ -224,8 +301,14 @@ function parse_chunk(strChunk, result, data) {
                 continue;
             } break;
 
-            case '((': {
-                break;
+            case '))': {
+                if (!buf.substr.length) {
+                    return;
+                }
+                if (buf.substr[0] === ')') {
+                    buf.advance(1);
+                }
+                data.processing = null;
             } break;
 
             default: {
@@ -242,9 +325,15 @@ function parse_chunk(strChunk, result, data) {
                 if (definitely_comes_before(idxClosingBracket, idxOpeningBracket)) {
                     result[result.length] = buf.read_to(idxClosingBracket);
                     if (data.tagStack.length) {
-                        var tag = data.tagStack.pop();
-                        if (util.identify_operator(tag) == 'tag') {
-                            result[result.length] = ["</", ">"].join(tag);
+                        if (last(data.tagStack) === '(') {
+                            result[result.length] = ')';
+                            data.tagStack.pop();
+                            data.processing = '))';
+                        } else {
+                            var tag = data.tagStack.pop();
+                            if (util.identify_operator(tag) === 'tag') {
+                                result[result.length] = ["</", ">"].join(tag);
+                            }
                         }
                     } else {
                         result[result.length] = ')';
@@ -255,35 +344,8 @@ function parse_chunk(strChunk, result, data) {
 
                 if (idxOpeningBracket > -1) {
                     result[result.length] = buf.read_to(idxOpeningBracket);
-                    var opStatus = buf.process_opening_bracket();
-                    switch (opStatus.pop()) {
-                        case 'tag': {
-                            result[result.length] = '<';
-                            data.tagStack.push('');
-                            data.processing = '(#';
-                        } break;
-                        case 'attr': {
-                            switch (opStatus.pop()) {
-                                case 'empty':
-                                case 'bad': {
-                                    data.processing = false;
-                                } break;
-                                default: {
-                                    data.tagStack.push('@');
-                                    data.processing = '(@';
-                                    result[result.length] = ' ';
-                                }
-                            }
-                        } break;
-                        case 'bracket': {
-                            data.tagStack.push('(');
-                            data.processing = '((';
-                        } break;
-                        default: {
-                            result[result.length] = '(';
-                            data.processing = false;
-                        }
-                    }
+                    buf.advance(1);
+                    data.processing = '(?';
                     continue;
                 } else {
                     result[result.length] = buf.read_to_end();
@@ -296,7 +358,13 @@ function parse_chunk(strChunk, result, data) {
 }
 
 function init_parse_state() {
-    var data = {line: 1, tagStack: [], processing: false, wsBuf: ''};
+    var data = {
+        line: 1,
+        tagStack: [],
+        processing: false,
+        wsBuf: '',
+        lastChar: ''
+    };
     data.barf_ws = function() {
         var buf = this.wsBuf;
         this.wsBuf = '';
@@ -307,12 +375,13 @@ function init_parse_state() {
 
 exports.parse = function (s) {
     var lines = s.split('\n');
-    var chunklen = 10;
+    var chunklen = 1;
     var chunk = s.substring(0, chunklen);
     var result = [];
     var data = init_parse_state();
     for (; s.length; s = s.substring(chunklen), chunk = s.substring(0, chunklen)) {
         parse_chunk(chunk, result, data);
+        data.lastChar = last(chunk);
     }
     return result.join('');
 }

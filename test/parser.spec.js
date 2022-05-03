@@ -29,6 +29,10 @@ describe('(tag)', function() {
         expect(parse('(tag)')).to.eql('<tag />');
     });
 
+    it('handles spaces between nested tags on same line', function() {
+        expect(parse('(li (em Item 1))')).to.eql('<li><em>Item 1</em></li>');
+        expect(parse('(li  (em Item 1))')).to.eql('<li> <em>Item 1</em></li>');
+    });
 
     it('preserves newlines when auto-closing a tag', function() {
         var input = `(tag
@@ -109,7 +113,8 @@ describe('(@)', function() {
         expect(parse('(@)')).to.eql('');
     });
 
-    it('writes out an empty string if no attribute name an only whitespace is provided', function() {
+    // Might change this rule to just write out the whitespace
+    it.skip('writes out an empty string if no attribute name an only whitespace is provided', function() {
         expect(parse('(@ )')).to.eql('');
     });
 
@@ -121,9 +126,9 @@ describe('(@)', function() {
     });
 
     it('writes out a bad attribute name if that is what is provided', function() {
-        var badAttrNames = ["(@')"];
+        var badAttrNames = ["(@' )"];
         badAttrNames.forEach(function(name) {
-            expect(parse(name)).to.eql(" '");
+            expect(parse(name)).to.eql("' ");
         });
     });
 
@@ -135,40 +140,40 @@ describe('(@)', function() {
     });
 
     it('writes out just the name if it is the only thing provided', function() {
-        expect(parse('(@attr)')).to.eql(' attr');
+        expect(parse('(@attr)')).to.eql('attr');
     });
 
     it('writes out a double quoted value in double quotes', function() {
-        expect(parse('(@attr "val")')).to.eql(' attr="val"');
+        expect(parse('(@attr "val")')).to.eql('attr="val"');
     });
 
     it('writes out a single quoted value in single quotes', function() {
-        expect(parse("(@attr 'val')")).to.eql(" attr='val'");
+        expect(parse("(@attr 'val')")).to.eql("attr='val'");
     });
 
     it('skips escaped quotes when writing out single quoted attribute values', function() {
-        expect(parse("(@attr 'va\\'l')")).to.eql(" attr='va\\'l'");
+        expect(parse("(@attr 'va\\'l')")).to.eql("attr='va\\'l'");
     });
 
     it('skips escaped quotes when writing out double quoted attribute values', function() {
-        expect(parse('(@attr "va\\"l")')).to.eql(' attr="va\\"l"');
+        expect(parse('(@attr "va\\"l")')).to.eql('attr="va\\"l"');
     });
 
     it('writes out the name equal to the value wrapped in quotes when no quotes are provided', function() {
-        expect(parse('(@attr val)')).to.eql(' attr="val"');
-        expect(parse('(@attr false)')).to.eql(' attr="false"');
-        expect(parse('(@attr multi word val)')).to.eql(' attr="multi word val"');
+        expect(parse('(@attr val)')).to.eql('attr="val"');
+        expect(parse('(@attr false)')).to.eql('attr="false"');
+        expect(parse('(@attr multi word val)')).to.eql('attr="multi word val"');
     });
 
     // Not sure how best to deal with this.  Should we tidy
     // things up or leave it to the user to get it right?
     it.skip('escapes single quotes within non-quoted value', function() {
-        expect(parse('(@attr va"l)')).to.eql(' attr="va\\\"l"');
+        expect(parse('(@attr va"l)')).to.eql('attr="va\\\"l"');
     });
 
     it('writes out values with the same quotes that are provided', function() {
-        expect(parse('(@attr "multi word val")')).to.eql(' attr="multi word val"');
-        expect(parse("(@attr 'multi word val')")).to.eql(" attr='multi word val'");
+        expect(parse('(@attr "multi word val")')).to.eql('attr="multi word val"');
+        expect(parse("(@attr 'multi word val')")).to.eql("attr='multi word val'");
     });
 
     it('ignores escaped brackets when parsing attribute value and makes no attempt to balance them.', function() {
@@ -178,8 +183,8 @@ describe('(@)', function() {
     it('writes out bracketed attribute values and makes no attempt to balance them. They have no significance in this position', function() {
         expect(parse('(tag (@attr (val)))')).to.eql('<tag attr="(val" />)');
     });
-
     describe('other scenarios', function() {
+
         it('ignores unmatched closing bracket', function() {
             expect(parse('(foo (@attr )(val)))')).to.eql('<foo attr><val /></foo>)');
         });
@@ -188,13 +193,13 @@ describe('(@)', function() {
     describe('brackets between quoted attribute values', function() {
         it('considers them as part of the string literal', function() {
             var str = '(@attr "(val)")';
-            expect(parse(str)).to.eql(' attr="(val)"');
+            expect(parse(str)).to.eql('attr="(val)"');
 
             var str = "(@attr '(val)')";
-            expect(parse(str)).to.eql(" attr='(val)'");
+            expect(parse(str)).to.eql("attr='(val)'");
 
             var str = "(@attr 'val)')";
-            expect(parse(str)).to.eql(" attr='val)'");
+            expect(parse(str)).to.eql("attr='val)'");
         });
     });
 
@@ -208,6 +213,51 @@ describe('(@)', function() {
             expect(parse('(tag (@attr foo (@attr bar)))')).to.eql('<tag attr="foo (@attr bar" />)');
         });
 
+    });
+});
+
+describe.skip('escape sequence', function() {
+    // - Could have a fn? (&l) (&r) (&nbsp) etc
+    it('the provided char to its escape sequence', function() {
+        expect(parse('(&&)')).to.eql('&amp;');
+        expect(parse('(&<)')).to.eql('&lt;');
+        expect(parse('(&>)')).to.eql('&gt;');
+    });
+
+    it('repeats the char the number of times provided in the argument', function() {
+        expect(parse('(&nbsp 4)')).to.eql('&nbsp;&nbsp;&nbsp;&nsbp;');
+    });
+});
+
+describe.skip('automatically escaped chars', function() {
+    it('automatically escapes <', function() {
+        expect(parse('<')).to.eql('&lt;');
+    });
+
+    it('automatically escapes >', function() {
+        expect(parse('>')).to.eql('&gt;');
+    });
+});
+
+describe('brackets', function() {
+    it('an s-exp with an opening bracket demarks bracketed text', function() {
+        expect(parse('A minor ((or slight) change')).to.eql('A minor (or slight) change');
+    });
+
+    it('a bracketing s-exp can be closed with 2 closing brackets', function() {
+        expect(parse('A minor ((or slight)) change')).to.eql('A minor (or slight) change');
+    });
+
+    it('allows for parsing within bracketed area', function() {
+        expect(parse('(AB (((CD (EF lorem:) ipsum dolar))))')).to.eql('<AB>(<CD><EF>lorem:</EF> ipsum dolar</CD>)</AB>');
+    });
+
+    it('can be closed with a single bracket', function() {
+        expect(parse('(AB hello ((bracketed) world)')).to.eql('<AB>hello (bracketed) world</AB>');
+    });
+
+    it('can be closed with a double bracket', function() {
+        expect(parse('(span ((bracketed)))')).to.eql('<span>(bracketed)</span>');
     });
 });
 

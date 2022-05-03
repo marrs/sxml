@@ -8,6 +8,7 @@ exports.identify_operator = function(token) {
             case "@": return 'attr';
             case ")": return 'none';
             case "(": return 'bracket';
+            case "&": return 'specialchar';
             default: return  'tag';
         }
     }

@@ -23,5 +23,6 @@ readStream.on('open', function() {
 readStream.on('data', function(chunk) {
     var result = [];
     parser.parse_chunk(decoder.write(chunk), result, parseState)
+    parseState.lastChar = chunk[chunk.length -1];
     process.stdout.write(Buffer.from(result.join('')));
 });

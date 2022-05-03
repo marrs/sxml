@@ -26,8 +26,13 @@ exports.Buffer_Trait = {
             this.reset(Math.min(x, this.str.length));
     },
 
-    is_next_char: function(ch) {
-        return this.substr[0] === ch;
+    skip_to_str: function(str) {
+        var idx = this.substr.indexOf(str);
+        if (idx > -1) {
+            this.advance(idx);
+            return this.reset(idx, this.str.length);
+        }
+        this.reset(this.str.length);
     },
 
     read_whitespace: function() {
@@ -39,6 +44,12 @@ exports.Buffer_Trait = {
     },
 
     read_to: function(offset) {
+        if (typeof offset === 'string') {
+            offset = this.substr.indexOf(offset);
+            if (offset < 0) {
+                offset = this.substr.length;
+            }
+        }
         var output = this.substr.substring(0, offset);
         this.advance(offset);
         return output;
@@ -54,48 +65,13 @@ exports.Buffer_Trait = {
 exports.Sexp_Buffer_Trait = Object.create(exports.Buffer_Trait);
 
 Object.assign(exports.Sexp_Buffer_Trait, {
-    eventually_read_operator: function() {
-        if (this.substr.charAt(1) === '(') {
-            this.advance(1);
-            return '(';
-        }
+    eventually_read_token: function() {
         var idxTokenEnd = index_of_token_end(this.substr);
         if (idxTokenEnd < 0) {
             return false;
         }
         var result = this.read_to(idxTokenEnd);
         return result;
-    },
-
-    process_opening_bracket: function() {
-        // Returns array of statuses in reverse order, with
-        // sub-status coming before super-status.  That way
-        // the consumer can drill down into specifics by
-        // using the Array.prototype.pop method.
-        this.advance(1);
-        switch(util.identify_operator(this.substr)) {
-            case 'tag': {
-                return ['tag'];
-            } break;
-            case 'attr': {
-                if (this.substr.indexOf('@)') === 0) {
-                    this.advance(2);
-                    return ['empty', 'attr'];
-                }
-                var badAttr = this.substr.match(/@\s*\)/);
-                if (badAttr && badAttr.index === 0) {
-                    this.advance(badAttr[0].length);
-                    return ['bad', 'attr'];
-                }
-                this.advance(1);
-                return ['attr'];
-            } break;
-            case 'bracket': {
-                this.advance(1);
-                return ['bracket'];
-            } break;
-        }
-        return [];
     }
 });
 
