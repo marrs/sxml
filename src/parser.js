@@ -420,7 +420,6 @@ function init_parse_state() {
 }
 
 exports.parse = function (s) {
-    var lines = s.split('\n');
     var chunklen = 1;
     var chunk = s.substring(0, chunklen);
     var result = [];

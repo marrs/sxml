@@ -113,11 +113,6 @@ describe('(@)', function() {
         expect(parse('(@)')).to.eql('');
     });
 
-    // Might change this rule to just write out the whitespace
-    it.skip('writes out an empty string if no attribute name an only whitespace is provided', function() {
-        expect(parse('(@ )')).to.eql('');
-    });
-
     it.skip('logs to stderr if no attribute name is provided', function() {
         parse('(@)')
         expect(logger).to.have.been.calledWith({
