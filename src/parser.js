@@ -101,6 +101,9 @@ function parse_chunk(strChunk, result, data) {
 
     while (buf.cursor < buf.str.length) {
         // Code:
+        //   #?  : Possible escape sequence
+        //   #(  : Opened trapdoor
+        //   )#? : Closing trapdoor?
         //   (?  : Discover purpose of opening bracket
         //   (#  : Opening an s-exp for a tag
         //   (# ?: Discover what comes after tag operator
@@ -114,6 +117,33 @@ function parse_chunk(strChunk, result, data) {
         //   (@ _: Parsing an attribute value not wrapped in quotes
         //   ))  : Handle second closing bracket
         switch (data.processing) {
+            case '#?': {
+                if ('(' === buf.substr[0]) {
+                    data.processing = '#(';
+                } else {
+                    result[result.length] = '#';
+                    data.processing = null;
+                }
+                buf.advance(1);
+            } break;
+            case '#(': {
+                result[result.length] = buf.read_to(')')
+                if (!buf.substr) {
+                    return;
+                } else {
+                    buf.advance(1);
+                    data.processing = ')#?';
+                }
+            } break;
+            case ')#?': {
+                if ('#' === buf.substr[0]) {
+                    buf.advance(1);
+                    data.processing = null;
+                } else {
+                    result[result.length] = ')';
+                    data.processing = '#(';
+                }
+            } break;
             case '(?': {
                 if (!buf.substr.length) { return; }
                 tmp = util.identify_operator(buf.substr);
@@ -321,6 +351,7 @@ function parse_chunk(strChunk, result, data) {
 
                 var idxOpeningBracket = buf.substr.indexOf('(');
                 var idxClosingBracket = buf.substr.indexOf(')');
+                var idxHash = buf.substr.indexOf('#');
 
                 if (definitely_comes_before(idxClosingBracket, idxOpeningBracket)) {
                     result[result.length] = buf.read_to(idxClosingBracket);
@@ -343,10 +374,21 @@ function parse_chunk(strChunk, result, data) {
                 }
 
                 if (idxOpeningBracket > -1) {
+                    if (idxHash > -1 && idxHash === idxOpeningBracket -1) {
+                        result[result.length] = buf.read_to(idxHash);
+                        buf.advance(2);
+                        data.processing = '#(';
+                        continue;
+                    }
                     result[result.length] = buf.read_to(idxOpeningBracket);
                     buf.advance(1);
                     data.processing = '(?';
                     continue;
+                } else if (idxHash === buf.str.length -1) {
+                    result[result.length] = buf.read_to(idxHash);
+                    data.processing = '#?';
+                    buf.advance(1);
+                    break;
                 } else {
                     result[result.length] = buf.read_to_end();
                     break;

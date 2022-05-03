@@ -261,6 +261,20 @@ describe('brackets', function() {
     });
 });
 
+describe('trapdoor', function() {
+    it('does not process any chars between #( and )#', function() {
+        expect(parse('#((tag text))#')).to.eql('(tag text)');
+    });
+
+    it('does not escape brackets that are between # chars', function() {
+        expect(parse('#(tag text)#')).to.eql('tag text');
+    });
+
+    it('does not escape html chars between #( and )#', function() {
+        expect(parse('#(<i>some</i>)#')).to.eql('<i>some</i>');
+    });
+});
+
 
 // TODO:
 // - Quirks attribute within HTML tag should remove doctype definition.
