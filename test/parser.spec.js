@@ -229,13 +229,27 @@ describe.skip('escape sequence', function() {
     });
 });
 
-describe.skip('automatically escaped chars', function() {
-    it('automatically escapes <', function() {
+describe('automatically escaped chars', function() {
+    // < and > chars in attribute name are covered elsewhere.
+
+    it('automatically converts < to its html entity', function() {
         expect(parse('<')).to.eql('&lt;');
     });
 
-    it('automatically escapes >', function() {
+    it('automatically converts > to its html entity', function() {
         expect(parse('>')).to.eql('&gt;');
+    });
+
+    it('does not convert > if it is part of an attribute value', function() {
+        expect(parse('(@foo >)')).to.eql('foo=">"');
+        expect(parse('(@foo ">"')).to.eql('foo=">"');
+        expect(parse("(@foo '>')")).to.eql("foo='>'");
+    });
+
+    it('does not convert < if it is part of an attribute value', function() {
+        expect(parse('(@foo <)')).to.eql('foo="<"');
+        expect(parse('(@foo "<")')).to.eql('foo="<"');
+        expect(parse("(@foo '<')")).to.eql("foo='<'");
     });
 });
 

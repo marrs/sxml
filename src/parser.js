@@ -37,6 +37,10 @@ function is_char_quote_mark(ch) {
     return ['"', "'"].indexOf(ch) > -1;
 }
 
+function convert_html_chars(str) {
+    return str.replace('<', '&lt;').replace('>', '&gt;');
+}
+
 exports.log_parse_error = function(data) {
     console.info("TODO: LOG TO STDERR -", data.msg, "- line:", data.line, "token:", data.token);
 }
@@ -354,7 +358,7 @@ function parse_chunk(strChunk, result, data) {
                 var idxHash = buf.substr.indexOf('#');
 
                 if (definitely_comes_before(idxClosingBracket, idxOpeningBracket)) {
-                    result[result.length] = buf.read_to(idxClosingBracket);
+                    result[result.length] = convert_html_chars(buf.read_to(idxClosingBracket));
                     if (data.tagStack.length) {
                         if ('(' === last(data.tagStack)) {
                             result[result.length] = ')';
@@ -375,22 +379,22 @@ function parse_chunk(strChunk, result, data) {
 
                 if (idxOpeningBracket > -1) {
                     if (idxHash > -1 && idxHash === idxOpeningBracket -1) {
-                        result[result.length] = buf.read_to(idxHash);
+                        result[result.length] = convert_html_chars(buf.read_to(idxHash));
                         buf.step(2);
                         data.processing = '#(';
                         continue;
                     }
-                    result[result.length] = buf.read_to(idxOpeningBracket);
+                    result[result.length] = convert_html_chars(buf.read_to(idxOpeningBracket));
                     buf.step();
                     data.processing = '(?';
                     continue;
                 } else if (idxHash === buf.str.length -1) {
-                    result[result.length] = buf.read_to(idxHash);
+                    result[result.length] = convert_html_chars(buf.read_to(idxHash));
                     data.processing = '#?';
                     buf.step();
                     break;
                 } else {
-                    result[result.length] = buf.read_to_end();
+                    result[result.length] = convert_html_chars(buf.read_to_end());
                     break;
                 }
             }
