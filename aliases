@@ -1,1 +1,1 @@
-alias t="yarn run mocha"
+alias t="clear; yarn run mocha"
