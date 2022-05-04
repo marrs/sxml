@@ -321,16 +321,15 @@ function parse_chunk(strChunk, result, data) {
                 }
             } break;
             case '(@ _': {
-                //FIXME: Don't always have escape sequence in same chunk
                 tmp = buf.substr.indexOf(')');
                 if (tmp > -1) {
                     result[result.length] =
-                        buf.read_to(tmp).replace('\\"', '&#34;');
+                        buf.read_to(tmp).replace('"', '&#34;');
                     result[result.length] = '"';
                     data.processing = '(@ ?';
                 } else {
                     result[result.length] =
-                        buf.read_to_end().replace('\\"', '&#34;');
+                        buf.read_to_end().replace('"', '&#34;');
                 }
                 continue;
             } break;

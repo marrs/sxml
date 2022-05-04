@@ -160,10 +160,8 @@ describe('(@)', function() {
         expect(parse('(@attr multi word val)')).to.eql('attr="multi word val"');
     });
 
-    // Not sure how best to deal with this.  Should we tidy
-    // things up or leave it to the user to get it right?
-    it.skip('escapes single quotes within non-quoted value', function() {
-        expect(parse('(@attr va"l)')).to.eql('attr="va\\\"l"');
+    it('escapes double quotes within non-quoted value', function() {
+        expect(parse('(@attr va"l)')).to.eql('attr="va&#34;l"');
     });
 
     it('writes out values with the same quotes that are provided', function() {
