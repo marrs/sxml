@@ -110,7 +110,7 @@ function parse_chunk(strChunk, result, data) {
         substr: strChunk,
     });
 
-    var tmp = '', t2 = '', x = 0;
+    var $1, $2;
 
     while (true) {
             if (!buf.substr) { return; }
@@ -164,45 +164,44 @@ function parse_chunk(strChunk, result, data) {
             } break;
             case '(?': {
                 if (!buf.substr) { return; }
-                tmp = util.identify_operator(buf.substr);
-                switch (tmp) {
-                    case 'tag': {
+                $1 = util.identify_operator(buf.substr);
+                switch ($1) {
+                    case 'tag':
                         result[result.length] = '<';
                         result[result.length] = ''; // Required by next iteration
                         data.tagStack.push('');
                         data.processing = '(#';
-                    } break;
-                    case 'attr': {
+                    break;
+                    case 'attr':
                         buf.step();
                         data.processing = '(@1';
-                    } break;
-                    case 'bracket': {
+                    break;
+                    case 'bracket':
                         data.tagStack.push('(');
                         result[result.length] = '(';
                         buf.step();
                         data.processing = null;
-                    } break;
-                    case 'specialchar': {
+                    break;
+                    case 'specialchar':
                         data.lexicalStack.push(['']);
                         data.processing = '(&';
                         buf.step();
-                    } break;
-                    default: {
+                    break;
+                    default:
                         result[result.length] = '(';
                         data.processing = null;
                         // XXX Why don't we advance here?
                         // We must be advancing somewhere else?
                         // Is that ok?
-                    }
                 }
             } break;
             case '(#': {
-                tmp = buf.eventually_read_token();
-                if (false === tmp) {
+                $1 = buf.eventually_read_token();
+                if (false === $1) {
                     result[result.length -1] += buf.read_to_end()
                     return;
                 }
-                result[result.length -1] += tmp;
+                result[result.length -1] += $1;
                 data.tagStack[data.tagStack.length -1] += last(result);
                 data.processing = '(# ?';
             } break;
@@ -265,21 +264,19 @@ function parse_chunk(strChunk, result, data) {
                 }
             } break;
             case '(@1': {
-                tmp = buf.substr[0];
-                switch (tmp) {
-                    case ')': {
+                $1 = buf.substr[0];
+                switch ($1) {
+                    case ')':
                         buf.step();
                         data.processing = null;
-                    } break;
-                    case /\s/.test(tmp): {
-                    } break;
+                    break;
                     default: {
-                        if (/[\s'"]/.test(tmp)) {
+                        if (/[\s'"]/.test($1)) {
                             data.processing = '(@!';
                         } else {
                             buf.step();
                             data.tagStack.push('@');
-                            result[result.length] = tmp;
+                            result[result.length] = $1;
                             data.processing = '(@_';
                         }
                     }
@@ -294,12 +291,12 @@ function parse_chunk(strChunk, result, data) {
                 data.processing = null;
             } break;
             case '(@_': {
-                tmp = buf.eventually_read_token();
-                if (false === tmp) {
+                $1 = buf.eventually_read_token();
+                if (false === $1) {
                     result[result.length -1] += buf.read_to_end()
                     return;
                 }
-                result[result.length -1] += tmp;
+                result[result.length -1] += $1;
                 data.tagStack[data.tagStack.length -1] += last(result);
                 if (!is_valid_attr_name(last(result))) {
                     // XXX Will read funny for super-long attribute names
@@ -314,13 +311,13 @@ function parse_chunk(strChunk, result, data) {
             case '(@ ?': {
                 buf.skip_whitespace();
                 if (!buf.substr) { return; }
-                tmp = buf.substr[0];
-                if (is_char_quote_mark(tmp)) {
+                $1 = buf.substr[0];
+                if (is_char_quote_mark($1)) {
                     result[result.length] = '=';
-                    result[result.length] = tmp;
+                    result[result.length] = $1;
                     buf.step();
-                    data.processing = '(@ ' + tmp;
-                } else if (')' === tmp) {
+                    data.processing = '(@ ' + $1;
+                } else if (')' === $1) {
                     data.tagStack.pop();
                     buf.step();
                     data.processing = '(# ?';
@@ -333,10 +330,10 @@ function parse_chunk(strChunk, result, data) {
             } break;
             case '(@ "':
             case "(@ '": {
-                tmp = index_of_closing_quote(buf.substr, last(data.processing));
-                if (tmp > -1) {
-                    result[result.length] = buf.read_to(tmp +1);
-                    if (!(0 === tmp && '\\' === data.lastChar)) {
+                $1 = index_of_closing_quote(buf.substr, last(data.processing));
+                if ($1 > -1) {
+                    result[result.length] = buf.read_to($1 +1);
+                    if (!(0 === $1 && '\\' === data.lastChar)) {
                         data.processing = '(@ ?';
                     }
                 } else {
@@ -346,10 +343,10 @@ function parse_chunk(strChunk, result, data) {
             } break;
 
             case '(@ _': {
-                tmp = buf.substr.indexOf(')');
-                if (tmp > -1) {
+                $1 = buf.substr.indexOf(')');
+                if ($1 > -1) {
                     result[result.length] =
-                        buf.read_to(tmp).replace('"', '&quot;');
+                        buf.read_to($1).replace('"', '&quot;');
                     result[result.length] = '"';
                     data.processing = '(@ ?';
                 } else {
@@ -360,12 +357,12 @@ function parse_chunk(strChunk, result, data) {
             } break;
 
             case '(&': {
-                tmp = buf.eventually_read_token();
-                if (false === tmp) {
+                $1 = buf.eventually_read_token();
+                if (false === $1) {
                     last(data.lexicalStack)[0] += buf.read_to_end()
                     return;
                 }
-                last(data.lexicalStack)[0] += tmp;
+                last(data.lexicalStack)[0] += $1;
                 if (!buf.substr.length) {
                     return;
                 } else {
@@ -381,12 +378,12 @@ function parse_chunk(strChunk, result, data) {
             } break;
 
             case '(& 1': {
-                tmp = buf.eventually_read_token();
-                if (false === tmp) {
+                $1 = buf.eventually_read_token();
+                if (false === $1) {
                     last(data.lexicalStack)[1] += buf.read_to_end()
                     return;
                 }
-                last(data.lexicalStack)[1] += tmp;
+                last(data.lexicalStack)[1] += $1;
                 last(data.lexicalStack)[1] = parseInt(last(data.lexicalStack)[1], 10);
                 if (')' === buf.substr[0]) {
                     data.processing = '(& )';
@@ -396,17 +393,17 @@ function parse_chunk(strChunk, result, data) {
             } break;
 
             case '(& _': {
-                tmp = buf.substr.indexOf(')');
-                if (tmp < 0) { return; }
-                buf.reset(tmp);
+                $1 = buf.substr.indexOf(')');
+                if ($1 < 0) { return; }
+                buf.reset($1);
                 data.processing = '(& )';
             } break;
 
             case '(& )': {
-                tmp = last(data.lexicalStack);
-                t2 = special_char(tmp[0]);
-                for (x = 0; x < tmp[1]; ++x) {
-                    result[result.length] = t2;
+                $1 = last(data.lexicalStack);
+                $2 = special_char($1[0]);
+                for (x = 0; x < $1[1]; ++x) {
+                    result[result.length] = $2;
                 }
                 buf.step();
                 data.lexicalStack.pop();
@@ -443,9 +440,9 @@ function parse_chunk(strChunk, result, data) {
                             data.tagStack.pop();
                             data.processing = '))';
                         } else {
-                            tmp = data.tagStack.pop();
-                            if ('tag' === util.identify_operator(tmp)) {
-                                result[result.length] = ["</", ">"].join(tmp);
+                            $1 = data.tagStack.pop();
+                            if ('tag' === util.identify_operator($1)) {
+                                result[result.length] = ["</", ">"].join($1);
                             }
                         }
                     } else {
