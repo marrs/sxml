@@ -161,7 +161,7 @@ describe('(@)', function() {
     });
 
     it('escapes double quotes within non-quoted value', function() {
-        expect(parse('(@attr va"l)')).to.eql('attr="va&#34;l"');
+        expect(parse('(@attr va"l)')).to.eql('attr="va&quot;l"');
     });
 
     it('writes out values with the same quotes that are provided', function() {

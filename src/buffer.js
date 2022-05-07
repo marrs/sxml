@@ -29,15 +29,6 @@ exports.Buffer_Trait = {
             this.reset(Math.min(x, this.str.length));
     },
 
-    skip_to_str: function(str) {
-        var idx = this.substr.indexOf(str);
-        if (idx > -1) {
-            this.step(idx);
-            return this.reset(idx, this.str.length);
-        }
-        this.reset(this.str.length);
-    },
-
     read_whitespace: function() {
         var nextNonWsChar = this.substr.match(/[^\s]/);
         if (nextNonWsChar) {

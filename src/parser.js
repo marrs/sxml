@@ -166,11 +166,11 @@ function parse_chunk(strChunk, result, data) {
                         data.tagStack.push('(');
                         result[result.length] = '(';
                         buf.step();
-                        data.processing = false;
+                        data.processing = null;
                     } break;
                     default: {
                         result[result.length] = '(';
-                        data.processing = false;
+                        data.processing = null;
                         // XXX Why don't we advance here?
                         // We must be advancing somewhere else?
                         // Is that ok?
@@ -226,7 +226,7 @@ function parse_chunk(strChunk, result, data) {
                     // Preserve whitespace for self-closing tags.
                     result[result.length] = (data.barf_ws() || ' ') + '/>';
                     data.tagStack.pop();
-                    data.processing = false;
+                    data.processing = null;
                 } else if (buf.substr[0] === '(') {
                     buf.step();
                     data.processing = '(# (';
@@ -237,7 +237,7 @@ function parse_chunk(strChunk, result, data) {
                     } else {
                         result[result.length] = data.barf_ws().substring(1);
                     }
-                    data.processing = false;
+                    data.processing = null;
                 }
             } break;
             case '(@1': {
@@ -320,16 +320,17 @@ function parse_chunk(strChunk, result, data) {
                     result[result.length] = buf.read_to_end();
                 }
             } break;
+
             case '(@ _': {
                 tmp = buf.substr.indexOf(')');
                 if (tmp > -1) {
                     result[result.length] =
-                        buf.read_to(tmp).replace('"', '&#34;');
+                        buf.read_to(tmp).replace('"', '&quot;');
                     result[result.length] = '"';
                     data.processing = '(@ ?';
                 } else {
                     result[result.length] =
-                        buf.read_to_end().replace('"', '&#34;');
+                        buf.read_to_end().replace('"', '&quot;');
                 }
                 continue;
             } break;
@@ -406,7 +407,7 @@ function init_parse_state() {
     var data = {
         line: 1,
         tagStack: [],
-        processing: false,
+        processing: null,
         wsBuf: '',
         lastChar: ''
     };
