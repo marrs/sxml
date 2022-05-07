@@ -15,6 +15,15 @@ function is_found(idxOrStr, substr) {
     return idxOrStr.indexOf(substr) > -1;
 }
 
+function special_char(x) {
+    switch(x) {
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        default: return '&' + x + ';';
+    }
+}
+
 function is_valid_attr_name(name) {
     if (0 === name.length) return false;
     if (is_found(name, '"')) return false;
@@ -101,9 +110,10 @@ function parse_chunk(strChunk, result, data) {
         substr: strChunk,
     });
 
-    var tmp = '';
+    var tmp = '', t2 = '', x = 0;
 
-    while (buf.cursor < buf.str.length) {
+    while (true) {
+            if (!buf.substr) { return; }
         // Code:
         //   #?  : Possible escape sequence
         //   #(  : Opened trapdoor
@@ -119,6 +129,10 @@ function parse_chunk(strChunk, result, data) {
         //   (@ ": Parsing an attribute value wrapped in double quotes
         //   (@ ': Parsing an attribute value wrapped in single quotes
         //   (@ _: Parsing an attribute value not wrapped in quotes
+        //   (&  : Parse special char
+        //   (& 1: Parse the first operand of the special char function
+        //   (& _: Parse the remaining operands of the special char function
+        //   (& ): Resolve the special char function
         //   ))  : Handle second closing bracket
         switch (data.processing) {
             case '#?': {
@@ -149,7 +163,7 @@ function parse_chunk(strChunk, result, data) {
                 }
             } break;
             case '(?': {
-                if (!buf.substr.length) { return; }
+                if (!buf.substr) { return; }
                 tmp = util.identify_operator(buf.substr);
                 switch (tmp) {
                     case 'tag': {
@@ -168,6 +182,11 @@ function parse_chunk(strChunk, result, data) {
                         buf.step();
                         data.processing = null;
                     } break;
+                    case 'specialchar': {
+                        data.lexicalStack.push(['']);
+                        data.processing = '(&';
+                        buf.step();
+                    } break;
                     default: {
                         result[result.length] = '(';
                         data.processing = null;
@@ -181,7 +200,7 @@ function parse_chunk(strChunk, result, data) {
                 tmp = buf.eventually_read_token();
                 if (false === tmp) {
                     result[result.length -1] += buf.read_to_end()
-                    continue;
+                    return;
                 }
                 result[result.length -1] += tmp;
                 data.tagStack[data.tagStack.length -1] += last(result);
@@ -189,7 +208,7 @@ function parse_chunk(strChunk, result, data) {
             } break;
             case '(# (': {
                 switch (util.identify_operator(buf.substr)) {
-                    case 'attr': {
+                    case 'attr':
                         if (!/[\s]$/.test(last(result)) && !data.wsBuf) {
 
                             data.wsBuf = ' ';
@@ -197,24 +216,29 @@ function parse_chunk(strChunk, result, data) {
                         result[result.length] = data.barf_ws();
                         buf.step();
                         data.processing = '(@1';
-                    } break;
-                    case 'tag': {
+                    break;
+                    case 'tag':
                         data.tagStack.push('');
                         result[result.length] = ['>', '<'].join(
                             is_found(data.wsBuf, '\n')? data.barf_ws() : data.barf_ws().substring(1)
                         )
                         result[result.length] = '';
                         data.processing = '(#';
-                    } break;
-                    case 'bracket': {
+                    break;
+                    case 'bracket':
                         data.tagStack.push('(');
                         result[result.length] = '>(';
                         buf.step();
                         data.wsBuf = '';
                         data.processing = null;
-                    } break;
+                    break;
+                    case 'specialchar':
+                    case 'none':
+                        data.processing = null;
+                        buf.step();
+                    break;
                     default: {
-                        console.error("I should not be here");
+                        console.error(["ERR: ", util.identify_operator(buf.substr), "did not match a pattern"].join(' '));
                     }
                 }
             } break;
@@ -273,7 +297,7 @@ function parse_chunk(strChunk, result, data) {
                 tmp = buf.eventually_read_token();
                 if (false === tmp) {
                     result[result.length -1] += buf.read_to_end()
-                    continue;
+                    return;
                 }
                 result[result.length -1] += tmp;
                 data.tagStack[data.tagStack.length -1] += last(result);
@@ -289,23 +313,22 @@ function parse_chunk(strChunk, result, data) {
             } break;
             case '(@ ?': {
                 buf.skip_whitespace();
-                if (buf.substr) {
-                    tmp = buf.substr[0];
-                    if (is_char_quote_mark(tmp)) {
-                        result[result.length] = '=';
-                        result[result.length] = tmp;
-                        buf.step();
-                        data.processing = '(@ ' + tmp;
-                    } else if (')' === tmp) {
-                        data.tagStack.pop();
-                        buf.step();
-                        data.processing = '(# ?';
-                    } else {
-                        result[result.length] = '=';
-                        result[result.length] = '"';
-                        buf.skip_whitespace();
-                        data.processing = '(@ _';
-                    }
+                if (!buf.substr) { return; }
+                tmp = buf.substr[0];
+                if (is_char_quote_mark(tmp)) {
+                    result[result.length] = '=';
+                    result[result.length] = tmp;
+                    buf.step();
+                    data.processing = '(@ ' + tmp;
+                } else if (')' === tmp) {
+                    data.tagStack.pop();
+                    buf.step();
+                    data.processing = '(# ?';
+                } else {
+                    result[result.length] = '=';
+                    result[result.length] = '"';
+                    buf.skip_whitespace();
+                    data.processing = '(@ _';
                 }
             } break;
             case '(@ "':
@@ -318,6 +341,7 @@ function parse_chunk(strChunk, result, data) {
                     }
                 } else {
                     result[result.length] = buf.read_to_end();
+                    return;
                 }
             } break;
 
@@ -331,8 +355,62 @@ function parse_chunk(strChunk, result, data) {
                 } else {
                     result[result.length] =
                         buf.read_to_end().replace('"', '&quot;');
+                    return;
                 }
-                continue;
+            } break;
+
+            case '(&': {
+                tmp = buf.eventually_read_token();
+                if (false === tmp) {
+                    last(data.lexicalStack)[0] += buf.read_to_end()
+                    return;
+                }
+                last(data.lexicalStack)[0] += tmp;
+                if (!buf.substr.length) {
+                    return;
+                } else {
+                    if (')' === buf.substr[0]) {
+                        last(data.lexicalStack)[1] = 1;
+                        data.processing = '(& )';
+                    } else {
+                        last(data.lexicalStack)[1] = '';
+                        buf.step();
+                        data.processing = '(& 1';
+                    }
+                }
+            } break;
+
+            case '(& 1': {
+                tmp = buf.eventually_read_token();
+                if (false === tmp) {
+                    last(data.lexicalStack)[1] += buf.read_to_end()
+                    return;
+                }
+                last(data.lexicalStack)[1] += tmp;
+                last(data.lexicalStack)[1] = parseInt(last(data.lexicalStack)[1], 10);
+                if (')' === buf.substr[0]) {
+                    data.processing = '(& )';
+                } else {
+                    data.processing = '(& _';
+                }
+            } break;
+
+            case '(& _': {
+                tmp = buf.substr.indexOf(')');
+                if (tmp < 0) { return; }
+                buf.reset(tmp);
+                data.processing = '(& )';
+            } break;
+
+            case '(& )': {
+                tmp = last(data.lexicalStack);
+                t2 = special_char(tmp[0]);
+                for (x = 0; x < tmp[1]; ++x) {
+                    result[result.length] = t2;
+                }
+                buf.step();
+                data.lexicalStack.pop();
+                data.processing = null;
             } break;
 
             case '))': {
@@ -392,10 +470,10 @@ function parse_chunk(strChunk, result, data) {
                     result[result.length] = convert_html_chars(buf.read_to(idxHash));
                     data.processing = '#?';
                     buf.step();
-                    break;
+                    return;
                 } else {
                     result[result.length] = convert_html_chars(buf.read_to_end());
-                    break;
+                    return;
                 }
             }
         }
@@ -407,6 +485,7 @@ function init_parse_state() {
     var data = {
         line: 1,
         tagStack: [],
+        lexicalStack: [],
         processing: null,
         wsBuf: '',
         lastChar: ''

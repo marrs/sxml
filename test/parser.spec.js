@@ -209,7 +209,7 @@ describe('(@)', function() {
     });
 });
 
-describe.skip('escape sequence', function() {
+describe('escape sequence', function() {
     // - Could have a fn? (&l) (&r) (&nbsp) etc
     it('the provided char to its escape sequence', function() {
         expect(parse('(&&)')).to.eql('&amp;');
@@ -217,9 +217,16 @@ describe.skip('escape sequence', function() {
         expect(parse('(&>)')).to.eql('&gt;');
     });
 
-    it('repeats the char the number of times provided in the argument', function() {
-        expect(parse('(&nbsp 4)')).to.eql('&nbsp;&nbsp;&nbsp;&nsbp;');
+    context('repeating the char the number of times provided in the argument', function() {
+        it('handles a single digit', function() {
+            expect(parse('(&nbsp 4)')).to.eql('&nbsp;&nbsp;&nbsp;&nbsp;');
+        });
+
+        it('handles multiple digits', function() {
+            expect(parse('(&nbsp 04)')).to.eql('&nbsp;&nbsp;&nbsp;&nbsp;');
+        });
     });
+
 });
 
 describe('automatically escaped chars', function() {
