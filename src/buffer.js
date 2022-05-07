@@ -68,15 +68,5 @@ Object.assign(Sexp_Buffer_Trait, {
         var idxTokenEnd = index_of_token_end(this.substr);
         return idxTokenEnd < 0?
             this.read_to_end() : this.read_to(idxTokenEnd);
-    },
-
-    // DEPRECATED FOR read_token
-    eventually_read_token: function() {
-        var idxTokenEnd = index_of_token_end(this.substr);
-        if (idxTokenEnd < 0) {
-            return false;
-        }
-        var result = this.read_to(idxTokenEnd);
-        return result;
     }
 });
