@@ -1,7 +1,8 @@
+#!/usr/bin/env node
 var fs = require('fs');
 var StringDecoder = require('string_decoder').StringDecoder;
 var Buffer = require('buffer').Buffer;
-var parser = require('./parser');
+var parser = require('../src/parser');
 
 var idxFilename = (/node$/.test(process.argv[0]))? 2 : 1;
 var filename = process.argv[idxFilename];
@@ -17,7 +18,6 @@ var parseState, decoder;
 readStream.on('open', function() {
     parseState = parser.init_parse_state();
     decoder = new StringDecoder('utf8');
-    console.error("FILE OPENED");
 });
 
 readStream.on('data', function(chunk) {
