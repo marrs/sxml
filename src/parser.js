@@ -62,7 +62,7 @@ function convert_html_chars(str) {
 }
 
 export function log_parse_error(data) {
-    console.info("TODO: LOG TO STDERR -", data.msg, "- line:", data.line, "token:", data.token);
+    console.info("TODO: LOG TO STDERR -", data.msg, "- line:", data.lineNumber, "token:", data.token);
 }
 
 function is_within_quote(isQuoting, idxQuote, idxString) {
@@ -108,7 +108,7 @@ function definitely_comes_before(idx1, idx2) {
 
 export function init_parse_state() {
     var data = {
-        line: 1,
+        lineCount: 0,
         tagStack: [],
         lexicalStack: [],
         processing: null,
@@ -129,6 +129,7 @@ export function parse_chunk(strChunk, result, data) {
     var buf = Object.create(Sexp_Buffer_Trait);
     Object.assign(buf, {
         cursor: 0,
+        lineCount: data.lineCount,
         str: strChunk,
         token: '',
         substr: strChunk,
@@ -326,7 +327,7 @@ export function parse_chunk(strChunk, result, data) {
                     // XXX Will read funny for super-long attribute names
                     log_parse_error({
                         msg: "Invalid attribute name",
-                        line: data.line,
+                        lineNumber: data.lineCount,
                         token: last(result)
                     });
                 }

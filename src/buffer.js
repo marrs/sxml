@@ -1,3 +1,5 @@
+import { count_newlines } from './util.js'
+
 function index_of_token_end(tkn) {
     var matchEndOfToken = tkn.match(/(\)|\s)/);
     return matchEndOfToken? matchEndOfToken.index : -1
@@ -5,9 +7,13 @@ function index_of_token_end(tkn) {
 
 export var Buffer_Trait = {
     reset: function(idx) {
+        var start = this.cursor;
         this.cursor = idx || 0;
         if (this.cursor > this.str.length) {
             this.cursor = this.str.length;
+        }
+        if (start < this.cursor) {
+            this.lineCount += count_newlines(this.str.substring(start, this.cursor));
         }
         this.substr = this.str.substring(this.cursor);
     },
@@ -58,6 +64,13 @@ export var Buffer_Trait = {
 export var Sexp_Buffer_Trait = Object.create(Buffer_Trait);
 
 Object.assign(Sexp_Buffer_Trait, {
+    read_token: function() {
+        var idxTokenEnd = index_of_token_end(this.substr);
+        return idxTokenEnd < 0?
+            this.read_to_end() : this.read_to(idxTokenEnd);
+    },
+
+    // DEPRECATED FOR read_token
     eventually_read_token: function() {
         var idxTokenEnd = index_of_token_end(this.substr);
         if (idxTokenEnd < 0) {
