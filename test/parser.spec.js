@@ -14,7 +14,7 @@ function mimic_stream(s) {
     var data = init_parse_state();
     for (; s.length; s = s.substring(chunklen), chunk = s.substring(0, chunklen)) {
         parse_chunk(chunk, result, data);
-        data.lastChar = last(chunk);
+        data.lastChunk = chunk;
     }
     return result.join('');
 }

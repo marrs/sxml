@@ -113,7 +113,7 @@ export function init_parse_state() {
         lexicalStack: [],
         processing: null,
         wsBuf: '',
-        lastChar: ''
+        lastChunk: ''
     };
     data.barf_ws = function() {
         var buf = this.wsBuf;
@@ -357,7 +357,7 @@ export function parse_chunk(strChunk, result, data) {
                 $1 = index_of_closing_quote(buf.substr, last(data.processing));
                 if ($1 > -1) {
                     result[result.length] = buf.read_to($1 +1);
-                    if (!(0 === $1 && '\\' === data.lastChar)) {
+                    if (!(0 === $1 && '\\' === (last(data.lastChunk)))) {
                         data.processing = '(@ ?';
                     }
                 } else {
