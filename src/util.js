@@ -1,3 +1,3 @@
-exports.last = function last(arr) {
+export function last(arr) {
     return arr[arr.length -1];
 }

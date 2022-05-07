@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-var fs = require('fs');
-var StringDecoder = require('string_decoder').StringDecoder;
-var Buffer = require('buffer').Buffer;
-var parser = require('../src/parser');
+import fs from 'fs'
+import { StringDecoder } from 'string_decoder'
+import { Buffer } from 'buffer';
+import { init_parse_state, parse_chunk } from '../src/parser'
 
 var idxFilename = (/node$/.test(process.argv[0]))? 2 : 1;
 var filename = process.argv[idxFilename];

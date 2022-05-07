@@ -1,30 +1,11 @@
-var chai = require('chai')
-var parser = require('../src/parser');
-var parse_chunk = parser.parse_chunk;
-var render = parser.render;
-var sinon = require('sinon');
-var sinonChai = require('sinon-chai');
-var util = require('../src/util');
+import chai from 'chai'
+import sinon from 'sinon'
+import sinonChai from 'sinon-chai'
+import { parse_chunk, init_parse_state } from '../src/parser.js'
+import { last } from '../src/util.js'
 
 chai.use(sinonChai);
 var expect = chai.expect;
-
-function init_parse_state() {
-    var data = {
-        line: 1,
-        tagStack: [],
-        lexicalStack: [],
-        processing: null,
-        wsBuf: '',
-        lastChar: ''
-    };
-    data.barf_ws = function() {
-        var buf = this.wsBuf;
-        this.wsBuf = '';
-        return buf;
-    }
-    return data;
-}
 
 function mimic_stream(s) {
     var chunklen = 1;
@@ -33,7 +14,7 @@ function mimic_stream(s) {
     var data = init_parse_state();
     for (; s.length; s = s.substring(chunklen), chunk = s.substring(0, chunklen)) {
         parse_chunk(chunk, result, data);
-        data.lastChar = util.last(chunk);
+        data.lastChar = last(chunk);
     }
     return result.join('');
 }
@@ -136,6 +117,7 @@ foobar</tag>`;  // Should we put the closing tag on a new line? Perhaps have a f
 describe('(@)', function() {
     var logger;
 
+    /*
     before(function() {
         logger = sinon.stub(parser, 'log_parse_error').callsFake(function(){});
     });
@@ -143,6 +125,7 @@ describe('(@)', function() {
     afterEach(function() {
         logger.reset();
     });
+    */
 
     it('writes out an empty string if no attribute name is provided', function() {
         expect(parse('(@)')).to.eql('');

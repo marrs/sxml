@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "S-Expression Markup Language",
   "main": "src/index.js",
+  "type": "module",
   "scripts": {
       "sxml": "./cli/index.js"
   },

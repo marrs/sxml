@@ -1,10 +1,9 @@
-var util = require('./util');
 function index_of_token_end(tkn) {
     var matchEndOfToken = tkn.match(/(\)|\s)/);
     return matchEndOfToken? matchEndOfToken.index : -1
 }
 
-exports.Buffer_Trait = {
+export var Buffer_Trait = {
     reset: function(idx) {
         this.cursor = idx || 0;
         if (this.cursor > this.str.length) {
@@ -56,9 +55,9 @@ exports.Buffer_Trait = {
     }
 };
 
-exports.Sexp_Buffer_Trait = Object.create(exports.Buffer_Trait);
+export var Sexp_Buffer_Trait = Object.create(Buffer_Trait);
 
-Object.assign(exports.Sexp_Buffer_Trait, {
+Object.assign(Sexp_Buffer_Trait, {
     eventually_read_token: function() {
         var idxTokenEnd = index_of_token_end(this.substr);
         if (idxTokenEnd < 0) {
@@ -68,4 +67,3 @@ Object.assign(exports.Sexp_Buffer_Trait, {
         return result;
     }
 });
-

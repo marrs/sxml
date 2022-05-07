@@ -1,9 +1,5 @@
-var buffer = require('./buffer');
-var Buffer_Trait = buffer.Buffer_Trait;
-var Sexp_Buffer_Trait = buffer.Sexp_Buffer_Trait;
-var util = require('./util');
-
-var last = util.last;
+import { Buffer_Trait, Sexp_Buffer_Trait } from './buffer.js'
+import { last } from './util.js';
 
 // String catenation by joining an array is a bit faster
 // than using +.  Therefore we prefer to build an array
@@ -65,12 +61,8 @@ function convert_html_chars(str) {
     return str.replace('<', '&lt;').replace('>', '&gt;');
 }
 
-exports.log_parse_error = function(data) {
+export function log_parse_error(data) {
     console.info("TODO: LOG TO STDERR -", data.msg, "- line:", data.line, "token:", data.token);
-}
-
-function log_parse_error(data) {
-    return exports.log_parse_error(data);
 }
 
 function is_within_quote(isQuoting, idxQuote, idxString) {
@@ -114,7 +106,24 @@ function definitely_comes_before(idx1, idx2) {
     return idx1 > -1 && idx1 < idx2;
 }
 
-function parse_chunk(strChunk, result, data) {
+export function init_parse_state() {
+    var data = {
+        line: 1,
+        tagStack: [],
+        lexicalStack: [],
+        processing: null,
+        wsBuf: '',
+        lastChar: ''
+    };
+    data.barf_ws = function() {
+        var buf = this.wsBuf;
+        this.wsBuf = '';
+        return buf;
+    }
+    return data;
+}
+
+export function parse_chunk(strChunk, result, data) {
     var lineLength = strChunk.length;
 
     var buf = Object.create(Sexp_Buffer_Trait);
@@ -125,7 +134,7 @@ function parse_chunk(strChunk, result, data) {
         substr: strChunk,
     });
 
-    var $1, $2;
+    var $1, $2, $3;
 
     while (true) {
         if (!buf.substr) { return; }
@@ -417,7 +426,7 @@ function parse_chunk(strChunk, result, data) {
             case '(& )': {
                 $1 = last(data.lexicalStack);
                 $2 = special_char($1[0]);
-                for (x = 0; x < $1[1]; ++x) {
+                for ($3 = 0; $3 < $1[1]; ++$3) {
                     result[result.length] = $2;
                 }
                 buf.step();
@@ -491,5 +500,3 @@ function parse_chunk(strChunk, result, data) {
         }
     }
 }
-
-exports.parse_chunk = parse_chunk;
