@@ -3,6 +3,8 @@ var Buffer_Trait = buffer.Buffer_Trait;
 var Sexp_Buffer_Trait = buffer.Sexp_Buffer_Trait;
 var util = require('./util');
 
+var last = util.last;
+
 // String catenation by joining an array is a bit faster
 // than using +.  Therefore we prefer to build an array
 // of string parts rather than appending to a preexisting
@@ -13,6 +15,23 @@ function is_found(idxOrStr, substr) {
         return idxOrStr > -1;
     }
     return idxOrStr.indexOf(substr) > -1;
+}
+
+function identify_operator(token) {
+    if (token.length) {
+        var firstChar = token.charAt(0);
+        if (/\s/.test(firstChar)) {
+            return 'none';
+        }
+        switch(firstChar) {
+            case "@": return 'attr';
+            case ")": return 'none';
+            case "(": return 'bracket';
+            case "&": return 'specialchar';
+            default: return  'tag';
+        }
+    }
+    return 'none';
 }
 
 function special_char(x) {
@@ -36,10 +55,6 @@ function is_valid_attr_name(name) {
     // Reject nonchars
     if (/[\uFDD0-\uFDEF\uFFFE\uFFFF\u1FFFE\u1FFFF\u2FFFE\u2FFFF\u3FFFE\u3FFFF\u4FFFE\u4FFFF\u5FFFE\u5FFFF\u6FFFE\u6FFFF\u7FFFE\u7FFFF\u8FFFE\u8FFFF\u9FFFE\u9FFFF\uAFFFE\uAFFFF\uBFFFE\uBFFFF\uCFFFE\uCFFFF\uDFFFE\uDFFFF\uEFFFE\uEFFFF\uFFFFE\uFFFFF\u10FFFE\u10FFFF]/.test(name)) return false;
     return true;
-}
-
-function last(arr) {
-    return arr[arr.length -1];
 }
 
 function is_char_quote_mark(ch) {
@@ -113,7 +128,7 @@ function parse_chunk(strChunk, result, data) {
     var $1, $2;
 
     while (true) {
-            if (!buf.substr) { return; }
+        if (!buf.substr) { return; }
         // Code:
         //   #?  : Possible escape sequence
         //   #(  : Opened trapdoor
@@ -164,7 +179,7 @@ function parse_chunk(strChunk, result, data) {
             } break;
             case '(?': {
                 if (!buf.substr) { return; }
-                $1 = util.identify_operator(buf.substr);
+                $1 = identify_operator(buf.substr);
                 switch ($1) {
                     case 'tag':
                         result[result.length] = '<';
@@ -206,7 +221,7 @@ function parse_chunk(strChunk, result, data) {
                 data.processing = '(# ?';
             } break;
             case '(# (': {
-                switch (util.identify_operator(buf.substr)) {
+                switch (identify_operator(buf.substr)) {
                     case 'attr':
                         if (!/[\s]$/.test(last(result)) && !data.wsBuf) {
 
@@ -237,7 +252,7 @@ function parse_chunk(strChunk, result, data) {
                         buf.step();
                     break;
                     default: {
-                        console.error(["ERR: ", util.identify_operator(buf.substr), "did not match a pattern"].join(' '));
+                        console.error(["ERR: ", identify_operator(buf.substr), "did not match a pattern"].join(' '));
                     }
                 }
             } break;
@@ -441,7 +456,7 @@ function parse_chunk(strChunk, result, data) {
                             data.processing = '))';
                         } else {
                             $1 = data.tagStack.pop();
-                            if ('tag' === util.identify_operator($1)) {
+                            if ('tag' === identify_operator($1)) {
                                 result[result.length] = ["</", ">"].join($1);
                             }
                         }
@@ -474,38 +489,7 @@ function parse_chunk(strChunk, result, data) {
                 }
             }
         }
-        continue;
     }
 }
 
-function init_parse_state() {
-    var data = {
-        line: 1,
-        tagStack: [],
-        lexicalStack: [],
-        processing: null,
-        wsBuf: '',
-        lastChar: ''
-    };
-    data.barf_ws = function() {
-        var buf = this.wsBuf;
-        this.wsBuf = '';
-        return buf;
-    }
-    return data;
-}
-
-exports.parse = function (s) {
-    var chunklen = 1;
-    var chunk = s.substring(0, chunklen);
-    var result = [];
-    var data = init_parse_state();
-    for (; s.length; s = s.substring(chunklen), chunk = s.substring(0, chunklen)) {
-        parse_chunk(chunk, result, data);
-        data.lastChar = last(chunk);
-    }
-    return result.join('');
-}
-
-exports.init_parse_state = init_parse_state;
 exports.parse_chunk = parse_chunk;
