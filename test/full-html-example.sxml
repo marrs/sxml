@@ -1,0 +1,23 @@
+(html
+  (@lang en)
+  (head
+    (title An example website)
+    (style h1 { color: blue; }))
+  (body (@id page-id)
+    (h1 Poetry Corner)
+    (h2 Mary had a little lamb ((a poem)))
+    (p (@class verse)
+      (em Mary) had a little (em lamb) (br)
+      Its (em fleece) was white as snow (br)
+      And (em everywere) that Mary went (br)
+      The (em lamb) was sure to go
+      )
+
+    (h2 Sign up for more poetry)
+    (form
+      (@method post)
+      (@action /sign-up)
+      (input
+        (@type email)
+        (@name email)
+        (@placeholder Enter email here)))))

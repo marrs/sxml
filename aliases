@@ -1,1 +1,2 @@
 alias t="clear; yarn run mocha"
+alias r="yarn sxml test/full-html-example.sxml"
