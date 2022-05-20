@@ -19,9 +19,6 @@ function mimic_stream(s) {
     return result.join('');
 }
 
-function mimic_file_stream(stub) {
-}
-
 var parse = mimic_stream;
 
 describe('log_parse_error', function() {
@@ -127,8 +124,12 @@ describe('(@)', function() {
     });
     */
 
+    it('should not throw unhandled exception when not wrapped by tag', function() {
+        expect(function() { parse('(@foo bar)') }).to.not.throw();
+    });
+
     it('writes out an empty string if no attribute name is provided', function() {
-        expect(parse('(@)')).to.eql('');
+        expect(parse('(tag (@))')).to.eql('');
     });
 
     it.skip('logs to stderr if no attribute name is provided', function() {
@@ -153,38 +154,38 @@ describe('(@)', function() {
     });
 
     it('writes out just the name if it is the only thing provided', function() {
-        expect(parse('(@attr)')).to.eql('attr');
+        expect(parse('(tag (@attr))')).to.eql('<tag attr />');
     });
 
     it('writes out a double quoted value in double quotes', function() {
-        expect(parse('(@attr "val")')).to.eql('attr="val"');
+        expect(parse('(tag (@attr "val"))')).to.eql('<tag attr="val" />');
     });
 
     it('writes out a single quoted value in single quotes', function() {
-        expect(parse("(@attr 'val')")).to.eql("attr='val'");
+        expect(parse("(tag (@attr 'val'))")).to.eql("<tag attr='val' />");
     });
 
     it('skips escaped quotes when writing out single quoted attribute values', function() {
-        expect(parse("(@attr 'va\\'l')")).to.eql("attr='va\\'l'");
+        expect(parse("(tag (@attr 'va\\'l'))")).to.eql("<tag attr='va\\'l' />");
     });
 
     it('skips escaped quotes when writing out double quoted attribute values', function() {
-        expect(parse('(@attr "va\\"l")')).to.eql('attr="va\\"l"');
+        expect(parse('(tag (@attr "va\\"l"))')).to.eql('<tag attr="va\\"l" />');
     });
 
     it('writes out the name equal to the value wrapped in quotes when no quotes are provided', function() {
-        expect(parse('(@attr val)')).to.eql('attr="val"');
-        expect(parse('(@attr false)')).to.eql('attr="false"');
-        expect(parse('(@attr multi word val)')).to.eql('attr="multi word val"');
+        expect(parse('(tag (@attr val))')).to.eql('<tag attr="val" />');
+        expect(parse('(tag (@attr false))')).to.eql('<tag attr="false" />');
+        expect(parse('(tag (@attr multi word val))')).to.eql('<tag attr="multi word val" />');
     });
 
     it('escapes double quotes within non-quoted value', function() {
-        expect(parse('(@attr va"l)')).to.eql('attr="va&quot;l"');
+        expect(parse('(tag (@attr va"l))')).to.eql('<tag attr="va&quot;l" />');
     });
 
     it('writes out values with the same quotes that are provided', function() {
-        expect(parse('(@attr "multi word val")')).to.eql('attr="multi word val"');
-        expect(parse("(@attr 'multi word val')")).to.eql("attr='multi word val'");
+        expect(parse('(tag (@attr "multi word val"))')).to.eql('<tag attr="multi word val" />');
+        expect(parse("(tag (@attr 'multi word val'))")).to.eql("<tag attr='multi word val' />");
     });
 
     it('ignores escaped brackets when parsing attribute value and makes no attempt to balance them.', function() {
@@ -203,14 +204,14 @@ describe('(@)', function() {
 
     describe('brackets between quoted attribute values', function() {
         it('considers them as part of the string literal', function() {
-            var str = '(@attr "(val)")';
-            expect(parse(str)).to.eql('attr="(val)"');
+            var str = '(tag (@attr "(val)"))';
+            expect(parse(str)).to.eql('<tag attr="(val)" />');
 
-            var str = "(@attr '(val)')";
-            expect(parse(str)).to.eql("attr='(val)'");
+            var str = "(tag (@attr '(val)'))";
+            expect(parse(str)).to.eql("<tag attr='(val)' />");
 
-            var str = "(@attr 'val)')";
-            expect(parse(str)).to.eql("attr='val)'");
+            var str = "(tag (@attr 'val)'))";
+            expect(parse(str)).to.eql("<tag attr='val)' />");
         });
     });
 
@@ -259,15 +260,15 @@ describe('automatically escaped chars', function() {
     });
 
     it('does not convert > if it is part of an attribute value', function() {
-        expect(parse('(@foo >)')).to.eql('foo=">"');
-        expect(parse('(@foo ">"')).to.eql('foo=">"');
-        expect(parse("(@foo '>')")).to.eql("foo='>'");
+        expect(parse('(tag (@foo >))')).to.eql('<tag foo=">" />');
+        expect(parse('(tag (@foo ">"))')).to.eql('<tag foo=">" />');
+        expect(parse("(tag (@foo '>'))")).to.eql("<tag foo='>' />");
     });
 
     it('does not convert < if it is part of an attribute value', function() {
-        expect(parse('(@foo <)')).to.eql('foo="<"');
-        expect(parse('(@foo "<")')).to.eql('foo="<"');
-        expect(parse("(@foo '<')")).to.eql("foo='<'");
+        expect(parse('(tag (@foo <))')).to.eql('<tag foo="<" />');
+        expect(parse('(tag (@foo "<"))')).to.eql('<tag foo="<" />');
+        expect(parse("(tag (@foo '<'))")).to.eql("<tag foo='<' />");
     });
 });
 

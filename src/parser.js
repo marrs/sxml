@@ -1,5 +1,6 @@
 import { Buffer_Trait, Sexp_Buffer_Trait } from './buffer.js'
 import { last } from './util.js';
+import { html } from './processors/index.js';
 
 // String catenation by joining an array is a bit faster
 // than using +.  Therefore we prefer to build an array
@@ -115,9 +116,6 @@ export function init_parse_state() {
             push: function(x) {
                 return this.frames.push(x);
             },
-            pop: function() {
-                return this.frames.pop();
-            },
             current_frame: function() {
                 return last(this.frames);
             },
@@ -126,7 +124,38 @@ export function init_parse_state() {
                     return data.defaultProcessor || null;
                 }
                 return this.current_frame().processor;
+            },
+            pop: function(isTagChildless) {
+                var event = isTagChildless? 'close-tag:no-children' : 'close-tag';
+                var poppedFrame = this.frames.pop();
+                var currentFrame = this.current_frame();
+                var poppedFrameData = poppedFrame.data;
+                switch (identify_operator(poppedFrame.operator)) {
+                    case 'tag':
+                        poppedFrame.processedData = data.processors[this.processor()](event, poppedFrameData);
+                    break;
+                    case 'attr':
+                        if (currentFrame) {
+                            switch (identify_operator(currentFrame.operator)) {
+                            case 'tag':
+                                currentFrame.data.push(poppedFrameData);
+                            break;
+                            case 'attr':
+                                currentFrame.data.push(poppedFrameData);
+                            break;
+                            default:
+                                console.error("Could not merge attributes. Stack frame did not represent attribute or tag.");
+                            }
+                        }
+                    break;
+                    default:
+                    break;
+                }
+                return poppedFrame;
             }
+        },
+        processors: {
+            html: html
         },
         state: null,
         wsBuf: '',
@@ -139,6 +168,9 @@ export function init_parse_state() {
     }
     return data;
 }
+
+// The AST for lexical stack frame data is represented like so:
+// [ LEADING_WHITESPACE, TAG [ [LEADING_WHITESPACE, ATTR_NAME, ATTR_VALUE], ...]]
 
 export function parse_chunk(strChunk, result, data) {
     var lineLength = strChunk.length;
@@ -155,6 +187,14 @@ export function parse_chunk(strChunk, result, data) {
 
     var $1, $2, $3;
 
+    // TODO Establish the performance hit of using const in this position?
+    const AST_IDX_WS = 0;
+    const AST_IDX_TAG = 1;
+    const AST_IDX_NAME = 1;
+    const AST_IDX_VAL = 2;
+    const AST_IDX_AT1 = 2;
+
+    var count = 0;
     while (true) {
         if (!buf.substr) { return; }
         // Code:
@@ -213,6 +253,7 @@ export function parse_chunk(strChunk, result, data) {
                         data.lexicalStack.push({
                             processor: null, // Unknown
                             operator: '',
+                            data: [''] // 1st element contains whitespace
                         });
                         data.state = '(#';
                     break;
@@ -252,42 +293,65 @@ export function parse_chunk(strChunk, result, data) {
                 if (!buf.substr) { return; }
                 if ($1.operator.indexOf(':') < 0) {
                     $1.processor = defaultProcessor;
-                    result[result.length] = '<' + $1.operator
+                    $1.data[AST_IDX_TAG] = $1.operator;
+                    $1.data[AST_IDX_AT1] = [];
                 }
                 data.state = '(# ?';
             } break;
             case '(# (': {
                 switch (identify_operator(buf.substr)) {
                     case 'attr':
-                        if (!/[\s]$/.test(last(result)) && !data.wsBuf) {
-                            data.wsBuf = ' ';
-                        }
-                        result[result.length] = data.barf_ws();
+                        data.lexicalStack.push({
+                            processor: defaultProcessor,
+                            operator: '@',
+                            data: [data.barf_ws()]
+                        });
+                        $1 = data.lexicalStack.current_frame().data;
                         buf.step();
                         data.state = '(@1';
                     break;
                     case 'tag':
+                        result[result.length] =
+                            data.processors[data.lexicalStack.processor()](
+                                'open-tag',
+                                data.lexicalStack.current_frame().data
+                            );
                         data.lexicalStack.push({
                             processor: null,
                             operator: '',
+                            data: ['']
                         });
-                        result[result.length] = '>' + (
+                        data.lexicalStack.current_frame().data[AST_IDX_WS] = (
                             is_found(data.wsBuf, '\n')? data.barf_ws() : data.barf_ws().substring(1)
                         )
                         data.state = '(#';
                     break;
                     case 'bracket':
+                        result[result.length] =
+                            data.processors[data.lexicalStack.processor()](
+                                'open-tag',
+                                data.lexicalStack.current_frame().data
+                            );
                         data.lexicalStack.push({
                             processor: defaultProcessor,
                             operator: '('
                         });
-                        result[result.length] = '>(';
+                        result[result.length] =
+                            data.processors[data.lexicalStack.processor()](
+                                'begin-escape-bracket',
+                                null
+                            );
                         buf.step();
                         data.wsBuf = '';
                         data.state = null;
                     break;
                     case 'specialchar':
                     case 'none':
+                        result[result.length] =
+                            data.processors[data.lexicalStack.processor()](
+                                'open-tag',
+                                data.lexicalStack.current_frame().data
+                            );
                         data.state = null;
                         buf.step();
                     break;
@@ -298,20 +362,24 @@ export function parse_chunk(strChunk, result, data) {
             } break;
             case '(# ?': {
                 data.wsBuf += buf.read_whitespace();
+                $1 = data.lexicalStack.current_frame().data
                 if (!buf.substr) { return; }
                 if (buf.substr[0] === ')') {
                     buf.step();
-                    if ('html' === data.lexicalStack.processor()) {
-                        // Preserve whitespace for self-closing tags.
-                        result[result.length] = (data.barf_ws() || ' ') + '/>';
-                    }
-                    data.lexicalStack.pop();
+                    $1[AST_IDX_AT1] = [data.barf_ws()];
+                    $2 = data.lexicalStack.pop(true);
+                    result[result.length] = $2.processedData;
                     data.state = null;
                 } else if (buf.substr[0] === '(') {
                     buf.step();
                     data.state = '(# (';
                 } else {
-                    result[result.length] = '>';
+                    result[result.length] =
+                        data.processors[data.lexicalStack.processor()](
+                            'open-tag',
+                            $1
+                        );
+                    // TODO: Work out how to handle this whitespace after opening tag.
                     if (is_found(data.wsBuf, '\n')) {
                         result[result.length] = data.barf_ws();
                     } else {
@@ -332,17 +400,22 @@ export function parse_chunk(strChunk, result, data) {
                             data.state = '(@!';
                         } else {
                             buf.step();
-                            data.lexicalStack.push({
-                                processor: defaultProcessor,
-                                operator: '@',
-                                data: [$1]
-                            });
+                            if (!data.lexicalStack.current_frame()) {
+                                data.lexicalStack.push({
+                                    processor: defaultProcessor,
+                                    operator: '@',
+                                    data: []
+                                });
+                            }
+                            data.lexicalStack.current_frame().data[AST_IDX_NAME] = $1;
                             data.state = '(@_';
                         }
                     }
                 }
             } break;
             case '(@!': {
+                // TODO: Put bad attributes into AST.
+                //   Maybe by appending to ws string.
                 result[result.length] = buf.read_to(')')
                 if (!buf.substr) {
                     return;
@@ -352,20 +425,18 @@ export function parse_chunk(strChunk, result, data) {
             } break;
             case '(@_': {
                 $1 = data.lexicalStack.current_frame();
-                $1.data[0] += buf.read_token();
+                $2 = $1.data;
+                $2[AST_IDX_NAME] += buf.read_token();
                 if (!buf.substr) { return; }
-                if ('html' === $1.processor) {
-                    result[result.length] = $1.data[0];
-                }
-                if (!is_valid_attr_name($1.data[0])) {
+                if (!is_valid_attr_name($2[AST_IDX_NAME])) {
                     // XXX Will read funny for super-long attribute names
                     log_parse_error({
                         msg: "Invalid attribute name",
                         lineNumber: data.lineCount,
-                        token: $1.data[0]
+                        token: last($2)[AST_IDX_NAME]
                     });
                 }
-                $1.data[1] = '';
+                $2[AST_IDX_VAL] = '';
                 data.state = '(@ ?';
             } break;
             case '(@ ?': {
@@ -373,10 +444,7 @@ export function parse_chunk(strChunk, result, data) {
                 if (!buf.substr) { return; }
                 $1 = buf.substr[0];
                 if (is_char_quote_mark($1)) {
-                    if ('html' === data.lexicalStack.processor()) {
-                        result[result.length] = '=';
-                        result[result.length] = $1;
-                    }
+                    data.lexicalStack.current_frame().data[AST_IDX_VAL] = $1;
                     buf.step();
                     data.state = '(@ ' + $1;
                 } else if (')' === $1) {
@@ -384,10 +452,7 @@ export function parse_chunk(strChunk, result, data) {
                     buf.step();
                     data.state = '(# ?';
                 } else {
-                    if ('html' === data.lexicalStack.processor()) {
-                        result[result.length] = '=';
-                        result[result.length] = '"';
-                    }
+                    data.lexicalStack.current_frame().data[AST_IDX_VAL] = '"';
                     buf.skip_whitespace();
                     data.state = '(@ _';
                 }
@@ -395,27 +460,26 @@ export function parse_chunk(strChunk, result, data) {
             case '(@ "':
             case "(@ '": {
                 $1 = index_of_closing_quote(buf.substr, last(data.state));
+                $2 = data.lexicalStack.current_frame().data;
                 if ($1 > -1) {
-                    result[result.length] = buf.read_to($1 +1);
+                    $2[AST_IDX_VAL] += buf.read_to($1 +1);
                     if (!(0 === $1 && '\\' === (last(data.lastChunk)))) {
                         data.state = '(@ ?';
                     }
                 } else {
-                    result[result.length] = buf.read_to_end();
+                    $2[AST_IDX_VAL] += buf.read_to_end();
                     return;
                 }
             } break;
 
             case '(@ _': {
                 $1 = buf.substr.indexOf(')');
+                $2 = data.lexicalStack.current_frame().data;
                 if ($1 > -1) {
-                    result[result.length] =
-                        buf.read_to($1).replace('"', '&quot;');
-                    result[result.length] = '"';
+                    $2[AST_IDX_VAL] += buf.read_to($1).replace('"', '&quot;') + '"';
                     data.state = '(@ ?';
                 } else {
-                    result[result.length] =
-                        buf.read_to_end().replace('"', '&quot;');
+                    $2[AST_IDX_VAL] += buf.read_to_end().replace('"', '&quot;');
                     return;
                 }
             } break;
@@ -498,9 +562,9 @@ export function parse_chunk(strChunk, result, data) {
                             data.lexicalStack.pop();
                             data.state = '))'; // TODO: This is probably an html processor thing
                         } else {
-                            $1 = data.lexicalStack.pop();
+                            $1 = data.lexicalStack.pop()
                             if ('tag' === identify_operator($1.operator)) {
-                                result[result.length] = ["</", ">"].join($1.operator);
+                                result[result.length] = $1.processedData;
                             }
                         }
                     } else {
